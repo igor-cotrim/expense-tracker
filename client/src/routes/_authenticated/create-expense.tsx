@@ -1,9 +1,15 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { useForm } from "@tanstack/react-form";
 import { zodValidator } from "@tanstack/zod-form-adapter";
+import { toast } from "sonner";
 
 import { createExpenseSchema } from "@server/shared/types";
-import { api } from "@/lib/api";
+import {
+  createExpense,
+  getAllExpensesQueryOptions,
+  loadingCreateExpenseQueryOptions,
+} from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,6 +20,7 @@ export const Route = createFileRoute("/_authenticated/create-expense")({
 });
 
 function CreateExpense() {
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
   const form = useForm({
     validatorAdapter: zodValidator,
@@ -23,15 +30,39 @@ function CreateExpense() {
       date: new Date().toISOString(),
     },
     onSubmit: async ({ value }) => {
-      const result = await api.expenses.$post({ json: value });
-      if (!result.ok) {
-        throw new Error("Failed to create expense");
-      }
+      const existingExpenses = await queryClient.ensureQueryData(
+        getAllExpensesQueryOptions
+      );
 
       navigate({ to: "/expenses" });
+
+      // loading state
+      queryClient.setQueryData(loadingCreateExpenseQueryOptions.queryKey, {
+        expense: value,
+      });
+
+      try {
+        const newExpense = await createExpense({ value });
+
+        queryClient.setQueryData(getAllExpensesQueryOptions.queryKey, {
+          ...existingExpenses,
+          expenses: [newExpense, ...existingExpenses.expenses],
+        });
+
+        toast("Expense Created", {
+          description: `Successfully created new expense: ${newExpense.id}`,
+        });
+        // success state
+      } catch (error) {
+        // error state
+        toast("Error", {
+          description: `Failed to create new expense`,
+        });
+      } finally {
+        queryClient.setQueryData(loadingCreateExpenseQueryOptions.queryKey, {});
+      }
     },
   });
-
   return (
     <div className="p-2">
       <h2>Create Expense</h2>
