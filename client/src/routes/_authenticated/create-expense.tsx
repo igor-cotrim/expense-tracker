@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-export const Route = createFileRoute("/create-expense")({
+export const Route = createFileRoute("/_authenticated/create-expense")({
   component: CreateExpense,
 });
 
